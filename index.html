@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BMO Desk</title>
+  <style>
+    html,body{margin:0;width:220px;height:300px;overflow:hidden;background:transparent;font-family:system-ui,sans-serif}
+    #scene{display:block;position:absolute;left:20px;top:60px;width:180px;height:240px}
+    #thought{display:none;position:absolute;left:10px;top:4px;width:200px;min-height:43px;max-height:49px;box-sizing:border-box;padding:5px 9px;background:#e9fff0;color:#183b32;border:2px solid #326e5e;border-radius:18px;text-align:center;pointer-events:none;z-index:4;box-shadow:0 2px 6px #15372b77}
+    #thought:after{content:"";position:absolute;left:55%;bottom:-7px;width:12px;height:12px;background:#e9fff0;border-right:2px solid #326e5e;border-bottom:2px solid #326e5e;transform:rotate(45deg)}
+    #thought .track{display:block;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #thought .artist{display:block;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #bubble{display:none;position:absolute;top:61px;left:50%;transform:translateX(-50%);max-width:166px;box-sizing:border-box;text-align:center;white-space:normal;z-index:5;background:#254f49ed;color:white;border-radius:10px;padding:4px 7px;font-size:10px;pointer-events:none;opacity:0;transition:opacity .3s}
+    #settings{display:none;position:absolute;inset:5px;z-index:10;box-sizing:border-box;border:2px solid #a1d8bb;border-radius:18px;background:linear-gradient(155deg,#143c38,#20564c);color:#effff3;padding:13px;box-shadow:0 12px 28px #102f2b99}
+    .eyebrow{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#bce4c8;font-weight:800}
+    #settings h1{font-size:17px;line-height:1.05;margin:7px 0 6px}
+    #settings p{font-size:10px;line-height:1.35;margin:0 0 9px;color:#d8eee0}
+    #connectionState{display:flex;align-items:center;gap:6px;min-height:32px;padding:6px 8px;border-radius:10px;background:#ffffff17;color:#fff;font-size:10px;box-sizing:border-box;margin-bottom:9px}
+    #connectionState:before{content:"";width:7px;height:7px;border-radius:50%;background:#f3c95b;flex:none}
+    #connectionState.connected:before{background:#8eefaa}
+    #connectionState.error:before{background:#f28c87}
+    button{border:0;cursor:pointer;font:700 11px system-ui,sans-serif}
+    #connect{display:block;width:100%;padding:10px 8px;border-radius:10px;background:#91e6aa;color:#153d31;box-shadow:0 3px 0 #66ad7b}
+    #connect:disabled{opacity:.65;cursor:default}
+    .controls{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 9px;margin-top:9px}
+    #disconnect,#hide{background:transparent;color:#d6f0de;padding:5px 2px}
+    #disconnect{display:none;grid-column:1 / -1;grid-row:2;text-align:left;color:#b9d7c7}
+    #hide{grid-column:2;grid-row:1;white-space:nowrap}
+    label{display:flex;align-items:center;gap:4px;font-size:10px;color:#d6f0de;white-space:nowrap}
+    label input{accent-color:#91e6aa;margin:0}
+    #error{min-height:12px;color:#ffd5c9!important;margin:6px 0 0!important}
+    .hint{font-size:9px!important;color:#a5cdb3!important;margin-top:5px!important}
+    #roomPanel{display:none;position:absolute;left:4px;right:4px;bottom:2px;z-index:11;box-sizing:border-box;padding:3px 5px;background:rgba(218,246,229,.84);border:1px solid #365c45;border-radius:9px;color:#183b34;font:11px monospace}
+    #roomPanel h2{font:700 14px monospace;margin:0 0 8px}
+    .roomLine{display:flex;gap:5px;margin:6px 0}
+    .roomLine input{min-width:0;flex:1}
+    #roomPanel input[type=text]{box-sizing:border-box;border:2px solid #466e59;border-radius:0;background:#f4fff3;padding:5px;font:11px monospace}
+    #roomPanel button{background:#88cda0;border:2px solid #365c45;border-radius:0;box-shadow:2px 2px #365c45;color:#173b30;padding:4px;font:700 10px monospace}
+    #roomCode{font-weight:700;font-size:15px;letter-spacing:1px}
+    #roomStatus{min-height:23px;font-size:9px;line-height:1.2}
+    #chatInput{width:100%}
+    #roomPanel label{font:10px monospace;color:#183b34;white-space:normal}
+    #roomDetails summary{cursor:pointer;font-size:10px;padding:3px 0} #roomPanel button:disabled{opacity:.5;cursor:default} #chatBubble[data-sender="BMO2"]{background:#ffd8ee;border-color:#91416f;box-shadow:2px 2px #b85c92} #chatBubble[data-sender="BMO"]{background:#def6e7} .guest #roomDetails{display:none}
+    #roomClose{position:absolute;right:3px;top:1px;padding:0 4px!important} .guest .chatLine{margin-right:18px} #roomPanel input[type=text]{background:rgba(244,255,243,.8)}
+    #chatBubble{display:none;position:absolute;left:50%;transform:translateX(-50%);top:54px;width:200px;text-align:center;z-index:8;max-width:204px;box-sizing:border-box;padding:7px;background:#f5fff0;border:3px solid #173b34;box-shadow:3px 3px #629b74;color:#173b34;font:700 10px monospace;overflow-wrap:anywhere;pointer-events:none}
+    .guest #settings,.guest #roomPanel > :not(h2):not(#roomStatus):not(#roomClose):not(.chatLine){display:none!important}
+  .floating #roomPanel{display:block;inset:0 0 auto;border-radius:8px}.roomHandle{display:none}.floating #roomPanel .roomHandle{display:block!important;-webkit-app-region:drag;cursor:move;padding:6px 30px 6px 6px;font-weight:700}.floating #roomClose{-webkit-app-region:no-drag;top:4px}.floating,.floating body{width:100%;height:100%}
+  </style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="thought"><span class="track"></span><span class="artist"></span></div>
+  <div id="bubble"></div>
+  <div id="chatBubble"></div>
+  <section id="roomPanel" aria-label="Çok oyunculu oda">
+    <header class="roomHandle">⠿ &nbsp; BMO · Sohbet</header>
+    <button id="roomClose" type="button" aria-label="Odayı kapat">×</button>
+    <details id="roomDetails"><summary>Oda ve karakter adı</summary>
+    <div>Senin kodun: <span id="roomCode">Hazırlanıyor</span></div>
+    <div id="roomStatus" role="status">Eş bağlantısı bekleniyor</div>
+    <div class="roomLine"><input id="peerCode" type="text" maxlength="8" placeholder="BMO-9421" aria-label="Arkadaşının oda kodu"><button id="roomConnect" type="button">Bağlan</button></div>
+    <label>Karakter adı <input id="displayName" type="text" maxlength="24" placeholder="BMO"></label></details>
+    <div class="roomLine chatLine"><input id="chatInput" type="text" maxlength="140" placeholder="Mesaj yaz…" aria-label="Sohbet mesajı"><button id="chatSend" type="button">Gönder</button></div>
+  </section>
+  <section id="settings" aria-label="Spotify bağlantısı">
+    <div class="eyebrow">BMO · Müzik</div>
+    <h1>Spotify ile birlikte</h1>
+    <p>Şarkılarını BMO’nun tuşlarıyla yönet. Bağlan’a bas; açılan Spotify sayfasında izin ver.</p>
+    <div id="connectionState" role="status">Bağlantı kontrol ediliyor…</div>
+    <button id="connect" type="button">Spotify ile bağlan</button>
+    <p class="hint">Bağlantı tamamlanınca bu pencereyi kapatabilirsin.</p>
+    <div class="controls"><label><input id="top" type="checkbox" checked> Üstte tut</label><button id="disconnect" type="button">Bağlantıyı kes</button><button id="hide" type="button">BMO’ya dön</button></div>
+    <p id="error" role="alert"></p>
+  </section>
+  <script src="./vendor/peerjs.min.js"></script>
+  <script src="./transferMath.js"></script>
+  <script src="./characterMotion.js"></script>
+  <script src="./multiplayer.js"></script>
+  <script src="./floatingRoom.js"></script>
+  <script src="./roomPanel.js"></script>
+  <script src="./connectionPanel.js"></script>
+  <script src="./renderer.bundle.js"></script>
+</body>
+</html>
