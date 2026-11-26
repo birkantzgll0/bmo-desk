@@ -44149,7 +44149,7 @@ void main() {
     }
   });
 
-  // referenceModel.js
+  // src/referenceModel.js
   function buildReferenceBmo(THREE, scene, screenTexture, chassisColor) {
     const outlineMat = new THREE.MeshBasicMaterial({
       color: "#172926",
@@ -44483,7 +44483,7 @@ void main() {
       if (color === chassisColor) return;
       chassisColor = color;
       tealMat.color.set(color || "#70C6A6");
-      for (const panel of [leftSidePanel,rightSidePanel]) {
+      for (const panel of [leftSidePanel, rightSidePanel]) {
         panel.material.map.dispose();
         panel.material.map = createSidePanelTexture(panel === rightSidePanel);
       }
@@ -44491,13 +44491,14 @@ void main() {
     return { setCharacter, root: bmoRoot, body: bmoBodyGroup, buttons: interactiveButtons, arms: [leftArmPivot, rightArmPivot], legs: [leftLegPivot, rightLegPivot] };
   }
   var init_referenceModel = __esm({
-    "referenceModel.js"() {
+    "src/referenceModel.js"() {
     }
   });
 
-  // renderer.js
+  // src/renderer.js
   var require_renderer = __commonJS({
-    "renderer.js"() {
+    "src/renderer.js"() {
+      init_three_module();
       init_three_module();
       init_referenceModel();
       (async () => {
@@ -44533,7 +44534,7 @@ void main() {
         group.scale.setScalar(0.9);
         group.position.y = -0.22;
         const [leftArm, rightArm] = model.arms, [leftLeg, rightLeg] = model.legs;
-        const actionMap = { CHAT:"chat", PREV_TRACK: "previous", NEXT_TRACK: "next", PLAY_PAUSE: "toggle", STOP: "pause", VOL_UP: "volumeUp", VOL_DOWN: "volumeDown", EXPRESSION: "expression", WALK_TOGGLE: "dance" };
+        const actionMap = { CHAT: "chat", PREV_TRACK: "previous", NEXT_TRACK: "next", PLAY_PAUSE: "toggle", STOP: "pause", VOL_UP: "volumeUp", VOL_DOWN: "volumeDown", EXPRESSION: "expression", WALK_TOGGLE: "dance" };
         const clickable = model.buttons.map((mesh) => ({ mesh, command: actionMap[mesh.userData.action] }));
         let state = { playing: false, title: "", artist: "", art: "", trackId: "" }, blink = false, expressionIndex = 0, danceMode = false;
         let roomPanel = null, characterAway = false;
@@ -44555,7 +44556,10 @@ void main() {
             if (blink) {
               ctx.lineWidth = 9;
               ctx.beginPath();
-              for (const x of [144, 368]) {ctx.moveTo(x - 18, eyeY);ctx.lineTo(x + 18, eyeY);}
+              for (const x of [144, 368]) {
+                ctx.moveTo(x - 18, eyeY);
+                ctx.lineTo(x + 18, eyeY);
+              }
               ctx.stroke();
             } else if (expressionIndex === 1) {
               ctx.lineWidth = 10;
@@ -44601,8 +44605,11 @@ void main() {
               const x = 103 + i * 31;
               ctx.fillStyle = "#9db8a9";
               ctx.fillRect(x, 448, 23, 18);
-              const fill = Math.max(0, Math.min(1, volumeLevel / 10 - i));
-              if (fill > 0) {ctx.fillStyle = "#8ff4aa";ctx.fillRect(x + 2, 450, 19 * fill, 14);}
+              const fill3 = Math.max(0, Math.min(1, volumeLevel / 10 - i));
+              if (fill3 > 0) {
+                ctx.fillStyle = "#8ff4aa";
+                ctx.fillRect(x + 2, 450, 19 * fill3, 14);
+              }
             }
           }
           ctx.fillStyle = "rgba(20,65,55,.035)";
@@ -44620,13 +44627,12 @@ void main() {
         }
         const ray = new Raycaster(), pointer = new Vector2();
         const buttonPoint = new Vector3();
-        function pickButton(e){
+        function pickButton(e) {
           scene.updateMatrixWorld(true);
           camera.updateMatrixWorld();
           pointer.set(e.offsetX / 180 * 2 - 1, -e.offsetY / 240 * 2 + 1);
           ray.setFromCamera(pointer, camera);
           const hits = ray.intersectObjects(clickable.map((x) => x.mesh), true);
-
           let nearest = null, nearestDistance = Infinity;
           for (const candidate of clickable) {
             candidate.mesh.getWorldPosition(buttonPoint).project(camera);
@@ -44644,120 +44650,159 @@ void main() {
               entry = clickable.find((x) => x.mesh === object);
               object = object.parent;
             }
-            if(entry) nearest=entry;
+            if (entry) nearest = entry;
           }
           return nearest;
         }
         paintScreen();
         if (new URLSearchParams(location.search).has("guest")) {
+          let updateGuestTrack = function(track) {
+            if (!track) return;
+            guestPlaying = !!track.playing;
+            state = { ...state, playing: guestPlaying, title: track.title, artist: track.artist };
+            paintScreen();
+          }, openChat = function() {
+            floating.open();
+            status.textContent = peerConnected ? "Mesaj\u0131n\u0131 yaz" : "Ana BMO \xFCzerinden odaya ba\u011Flan";
+            input.focus();
+          }, animateGuest = function(now) {
+            if (now - previousFrame < 1e3 / 30 - 1) {
+              requestAnimationFrame(animateGuest);
+              return;
+            }
+            const dt = Math.min(0.05, (now - previousFrame) / 1e3);
+            previousFrame = now;
+            if (!grabbed) window.BmoTransferMath.step(sim, dt, area2);
+            renderX = window.BmoTransferMath.lerp(renderX, sim.x, dt);
+            renderY = window.BmoTransferMath.lerp(renderY, sim.y, dt);
+            if (!grabbed) window.bmo.move(renderX, renderY);
+            const pose = window.BmoCharacterMotion.pose(now / 1e3, guestDance, guestPlaying);
+            avatar.rotation.z = window.BmoCharacterMotion.ease(avatar.rotation.z, pose.sway + Math.max(-0.12, Math.min(0.12, sim.vx * 25e-5)), dt);
+            if (guestMotion) {
+              body.position.y = pose.bounce;
+              const [armL, armR] = guestMotion.arms, [legL, legR] = guestMotion.legs;
+              const leftTarget = pose.leftArm;
+              const rightTarget = pose.rightArm;
+              armL.rotation.z = window.BmoCharacterMotion.ease(armL.rotation.z, leftTarget, dt);
+              armR.rotation.z = window.BmoCharacterMotion.ease(armR.rotation.z, rightTarget, dt);
+              legL.rotation.x = pose.leftLeg;
+              legR.rotation.x = pose.rightLeg;
+            }
+            if (now - blinkAt > 4e3) {
+              blinkAt = now;
+              blink = true;
+              paintScreen();
+              setTimeout(() => {
+                blink = false;
+                paintScreen();
+              }, 140);
+            }
+            renderer.render(scene, camera);
+            requestAnimationFrame(animateGuest);
+          };
           document.body.classList.add("guest");
           const transfer = guestInitial;
           if (!transfer) return;
           let avatar = group;
-          const area = {x:window.screen.availLeft,y:window.screen.availTop,width:window.screen.availWidth,height:window.screen.availHeight};
-          const sim = window.BmoTransferMath.denormalize(transfer,area);
-          sim.x = window.screenX; sim.y = window.screenY;
+          const area2 = { x: window.screen.availLeft, y: window.screen.availTop, width: window.screen.availWidth, height: window.screen.availHeight };
+          const sim = window.BmoTransferMath.denormalize(transfer, area2);
+          sim.x = window.screenX;
+          sim.y = window.screenY;
           let renderX = sim.x, renderY = sim.y, grabbed = false, lastPointer = null, previousFrame = performance.now(), blinkAt = 0;
           let guestDance = false, guestPlaying = !!transfer.spotifyPlaying, peerConnected = !!transfer.peerConnected;
-          window.bmo.onGuestLinkStatus(connected => peerConnected = connected);
-          window.bmo.onGuestPlayback(playing => guestPlaying = playing);
-          function updateGuestTrack(track) {
-            if (!track) return;
-            guestPlaying = !!track.playing;
-            state = {...state,playing:guestPlaying,title:track.title,artist:track.artist};
-            paintScreen();
-          }
+          window.bmo.onGuestLinkStatus((connected2) => peerConnected = connected2);
+          window.bmo.onGuestPlayback((playing) => guestPlaying = playing);
           window.bmo.onGuestTrack(updateGuestTrack);
           updateGuestTrack(transfer.guestTrack);
-
-          const guestMotion=model;
-          const panel=document.querySelector('#roomPanel'), input=document.querySelector('#chatInput');
-          const status=document.querySelector('#roomStatus');
+          const guestMotion = model;
+          const panel = document.querySelector("#roomPanel"), input = document.querySelector("#chatInput");
+          const status = document.querySelector("#roomStatus");
           const floating = new FloatingRoom(panel);
-          function openChat(){
-            floating.open();
-            status.textContent=peerConnected?'Mesajını yaz':'Ana BMO üzerinden odaya bağlan';
-            input.focus();
-          }
-          document.querySelector('#roomClose').onclick=()=>floating.close();
-          const send=()=>{if(input.value.trim()) window.bmo.guestOutgoing(input.value);};
-          document.querySelector('#chatSend').onclick=send;
-          input.onkeydown=e=>{if(e.key==='Enter' && !e.repeat) send();};
-          window.bmo.onGuestResult(sent=>{
-            if(sent){input.value='';input.focus();}
-            else status.textContent='Önce ana BMO üzerinden odaya bağlan';
+          document.querySelector("#roomClose").onclick = () => floating.close();
+          const send = () => {
+            if (input.value.trim()) window.bmo.guestOutgoing(input.value);
+          };
+          document.querySelector("#chatSend").onclick = send;
+          input.onkeydown = (e) => {
+            if (e.key === "Enter" && !e.repeat) send();
+          };
+          window.bmo.onGuestResult((sent) => {
+            if (sent) {
+              input.value = "";
+              input.focus();
+            } else status.textContent = "\xD6nce ana BMO \xFCzerinden odaya ba\u011Flan";
           });
-
-          let busy=false;
-          canvas.addEventListener("pointerdown",async e=>{
-            const hit=pickButton(e);
-            if(hit){
-              const action=hit.command;
-              if(action==='chat') openChat();
-              else if(action==='dance') guestDance=!guestDance;
-              else if(action==='expression'){expressionIndex=(expressionIndex+1)%4;paintScreen();}
-              else if(!busy){
-                busy=true;
+          let busy = false;
+          canvas.addEventListener("pointerdown", async (e) => {
+            const hit = pickButton(e);
+            if (hit) {
+              const action = hit.command;
+              if (action === "chat") openChat();
+              else if (action === "dance") guestDance = !guestDance;
+              else if (action === "expression") {
+                expressionIndex = (expressionIndex + 1) % 4;
+                paintScreen();
+              } else if (!busy) {
+                busy = true;
                 try {
-                  if(action==='volumeUp'||action==='volumeDown'){
-                    volumeLevel=await window.bmo.volume(action==='volumeUp'?5:-5);
-                    volumeUntil=performance.now()+2600;paintScreen();
-                    clearTimeout(volumeTimer);volumeTimer=setTimeout(paintScreen,2700);
-                  } else await window.bmo.command(action==='toggle'?(guestPlaying?'pause':'play'):action);
-                } catch {say('Spotify bağlantını kontrol et');}
-                finally {busy=false;}
+                  if (action === "volumeUp" || action === "volumeDown") {
+                    volumeLevel = await window.bmo.volume(action === "volumeUp" ? 5 : -5);
+                    volumeUntil = performance.now() + 2600;
+                    paintScreen();
+                    clearTimeout(volumeTimer);
+                    volumeTimer = setTimeout(paintScreen, 2700);
+                  } else await window.bmo.command(action === "toggle" ? guestPlaying ? "pause" : "play" : action);
+                } catch {
+                  say("Spotify ba\u011Flant\u0131n\u0131 kontrol et");
+                } finally {
+                  busy = false;
+                }
               }
               return;
             }
-            grabbed = true;lastPointer={x:e.screenX,y:e.screenY,time:performance.now()};try{canvas.setPointerCapture(e.pointerId);}catch{}
-          });
-          window.addEventListener('keydown',e=>{if(e.target.tagName!=='INPUT' && e.key.toLowerCase()==='d'){guestDance=!guestDance;say(guestDance?'PMO dans ediyor!':'PMO dinleniyor',1800);}});
-          window.addEventListener("pointermove", e => {
-            if (!grabbed || !lastPointer) return;
-            const dt = Math.max(.008,(performance.now()-lastPointer.time)/1000);
-            const dx=e.screenX-lastPointer.x,dy=e.screenY-lastPointer.y;
-            sim.x+=dx;sim.y+=dy;sim.vx=Math.max(-600,Math.min(600,dx/dt));sim.vy=Math.max(-900,Math.min(900,dy/dt));
-            lastPointer={x:e.screenX,y:e.screenY,time:performance.now()};
-            window.bmo.move(sim.x,sim.y);
-          });
-          const release = e => {
-            if (!grabbed) return;
-            grabbed=false;
-            if (e?.pointerId!==void 0 && canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-            const left=area.x,right=area.x+area.width-220;
-            if ((!transfer.localOnly || peerConnected) && ((sim.x<=left+8&&sim.vx< -180)||(sim.x>=right-8&&sim.vx>180))) window.bmo.guestReturn(window.BmoTransferMath.normalize({x:sim.x,y:sim.y,vx:sim.vx,vy:sim.vy,area,characterType:transfer.characterType}));
-          };
-          window.addEventListener("pointerup",release);
-          window.addEventListener("pointercancel",release);
-          window.addEventListener("blur",()=>release());
-          let chatTimer;
-          window.bmo.onGuestChat(message=>{
-            const bubble=document.querySelector('#chatBubble');bubble.textContent=message.text;bubble.dataset.sender=message.sender;bubble.style.display='block';
-            clearTimeout(chatTimer);chatTimer=setTimeout(()=>bubble.style.display='none',4000);
-          });
-          function animateGuest(now) {
-            if(now-previousFrame < 1000/30-1){requestAnimationFrame(animateGuest);return;}
-            const dt=Math.min(.05,(now-previousFrame)/1000);previousFrame=now;
-            if (!grabbed) window.BmoTransferMath.step(sim,dt,area);
-            renderX=window.BmoTransferMath.lerp(renderX,sim.x,dt);
-            renderY=window.BmoTransferMath.lerp(renderY,sim.y,dt);
-            if(!grabbed) window.bmo.move(renderX,renderY);
-            const pose=window.BmoCharacterMotion.pose(now/1000,guestDance,guestPlaying);
-            avatar.rotation.z=window.BmoCharacterMotion.ease(avatar.rotation.z,pose.sway+Math.max(-.12,Math.min(.12,sim.vx*.00025)),dt);
-            if (guestMotion) {
-              body.position.y=pose.bounce;
-              const [armL,armR]=guestMotion.arms,[legL,legR]=guestMotion.legs;
-              const leftTarget=pose.leftArm;
-              const rightTarget=pose.rightArm;
-              armL.rotation.z=window.BmoCharacterMotion.ease(armL.rotation.z,leftTarget,dt);
-              armR.rotation.z=window.BmoCharacterMotion.ease(armR.rotation.z,rightTarget,dt);
-              legL.rotation.x=pose.leftLeg;
-              legR.rotation.x=pose.rightLeg;
+            grabbed = true;
+            lastPointer = { x: e.screenX, y: e.screenY, time: performance.now() };
+            try {
+              canvas.setPointerCapture(e.pointerId);
+            } catch {
             }
-            if (now-blinkAt>4000) {blinkAt=now;blink=true;paintScreen();setTimeout(()=>{blink=false;paintScreen();},140);}
-            renderer.render(scene,camera);
-            requestAnimationFrame(animateGuest);
-          }
+          });
+          window.addEventListener("keydown", (e) => {
+            if (e.target.tagName !== "INPUT" && e.key.toLowerCase() === "d") {
+              guestDance = !guestDance;
+              say(guestDance ? "PMO dans ediyor!" : "PMO dinleniyor", 1800);
+            }
+          });
+          window.addEventListener("pointermove", (e) => {
+            if (!grabbed || !lastPointer) return;
+            const dt = Math.max(8e-3, (performance.now() - lastPointer.time) / 1e3);
+            const dx = e.screenX - lastPointer.x, dy = e.screenY - lastPointer.y;
+            sim.x += dx;
+            sim.y += dy;
+            sim.vx = Math.max(-600, Math.min(600, dx / dt));
+            sim.vy = Math.max(-900, Math.min(900, dy / dt));
+            lastPointer = { x: e.screenX, y: e.screenY, time: performance.now() };
+            window.bmo.move(sim.x, sim.y);
+          });
+          const release = (e) => {
+            if (!grabbed) return;
+            grabbed = false;
+            if (e?.pointerId !== void 0 && canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+            const left = area2.x, right = area2.x + area2.width - 220;
+            if ((!transfer.localOnly || peerConnected) && (sim.x <= left + 8 && sim.vx < -180 || sim.x >= right - 8 && sim.vx > 180)) window.bmo.guestReturn(window.BmoTransferMath.normalize({ x: sim.x, y: sim.y, vx: sim.vx, vy: sim.vy, area: area2, characterType: transfer.characterType }));
+          };
+          window.addEventListener("pointerup", release);
+          window.addEventListener("pointercancel", release);
+          window.addEventListener("blur", () => release());
+          let chatTimer;
+          window.bmo.onGuestChat((message) => {
+            const bubble2 = document.querySelector("#chatBubble");
+            bubble2.textContent = message.text;
+            bubble2.dataset.sender = message.sender;
+            bubble2.style.display = "block";
+            clearTimeout(chatTimer);
+            chatTimer = setTimeout(() => bubble2.style.display = "none", 4e3);
+          });
           requestAnimationFrame(animateGuest);
           return;
         }
@@ -44768,13 +44813,16 @@ void main() {
           if (state.playing === playing && state.title === title && state.artist === artist && state.trackId === trackId) return;
           state = { playing, title, artist, trackId, progressMs: Math.max(0, Math.round(data?.progress_ms || 0)) };
           window.bmo.guestPlayback(playing);
-          window.bmo.guestTrack({playing,title,artist});
+          window.bmo.guestTrack({ playing, title, artist });
           paintScreen();
         }
         let connected = false, polling = false;
         const connectionPanel = new window.BmoConnectionPanel(window.bmo, (status, meta) => {
           connected = status.stage === "connected";
-          if (connected && !meta.initial && !meta.wasConnected) { refresh(); say("Spotify ba\u011Fland\u0131!"); }
+          if (connected && !meta.initial && !meta.wasConnected) {
+            refresh();
+            say("Spotify ba\u011Fland\u0131!");
+          }
           if (!connected) applyTrack(null);
         });
         async function refresh() {
@@ -44783,25 +44831,30 @@ void main() {
           try {
             await applyTrack(await window.bmo.track());
           } catch (e) {
-            if (String(e).includes("SPOTIFY_AUTH_EXPIRED")) connectionPanel.update({stage:"disconnected",message:"Oturum sona erdi. Yeniden bağlan."});
+            if (String(e).includes("SPOTIFY_AUTH_EXPIRED")) connectionPanel.update({ stage: "disconnected", message: "Oturum sona erdi. Yeniden ba\u011Flan." });
           } finally {
             polling = false;
           }
         }
         await connectionPanel.init();
         roomPanel = new window.BmoRoomPanel({
-          bmo:window.bmo,
-          onTransfer:payload => {
-            if (characterAway && payload.characterType === roomPanel.characterType) {characterAway=false;window.bmo.showCharacter();}
-            else window.bmo.spawnGuest(payload);
+          bmo: window.bmo,
+          onTransfer: (payload) => {
+            if (characterAway && payload.characterType === roomPanel.characterType) {
+              characterAway = false;
+              window.bmo.showCharacter();
+            } else window.bmo.spawnGuest(payload);
           },
-          onPeerState:status => {
+          onPeerState: (status) => {
             model.setCharacter(roomPanel.characterType);
-            if (characterAway && ['ready','offline','error'].includes(status.status)) {characterAway=false;window.bmo.showCharacter();}
+            if (characterAway && ["ready", "offline", "error"].includes(status.status)) {
+              characterAway = false;
+              window.bmo.showCharacter();
+            }
           }
         });
         roomPanel.init();
-        window.bmo.onGuestReturn(payload => roomPanel.sendTransfer(payload));
+        window.bmo.onGuestReturn((payload) => roomPanel.sendTransfer(payload));
         setInterval(refresh, 3e3);
         refresh();
         let commandQueue = Promise.resolve(), pendingCommands = 0;
@@ -44856,16 +44909,19 @@ void main() {
         }
         let dragging = false, start = null, last = null, vx = 0, vy = 0, windowX = window.screenX, windowY = window.screenY, lastTime = 0;
         canvas.addEventListener("pointerdown", (e) => {
-          const nearest=pickButton(e);
+          const nearest = pickButton(e);
           if (nearest) {
             nearest.mesh.userData.targetOffset = nearest.mesh.userData.pressAmount;
             setTimeout(() => nearest.mesh.userData.targetOffset = 0, 130);
-            if(nearest.command==="chat") roomPanel.open(true);
+            if (nearest.command === "chat") roomPanel.open(true);
             else command(nearest.command);
             return;
           }
           dragging = true;
-          try { canvas.setPointerCapture(e.pointerId); } catch {}
+          try {
+            canvas.setPointerCapture(e.pointerId);
+          } catch {
+          }
           start = { x: e.screenX, y: e.screenY };
           last = start;
           windowX = window.screenX;
@@ -44918,7 +44974,10 @@ void main() {
         });
         let previous = performance.now(), blinkTime = 0;
         function animate(now) {
-            if(now-previous < 1000/30-1){requestAnimationFrame(animate);return;}
+          if (now - previous < 1e3 / 30 - 1) {
+            requestAnimationFrame(animate);
+            return;
+          }
           const dt = Math.min(0.05, (now - previous) / 1e3);
           previous = now;
           const t = now / 1e3;
@@ -44930,9 +44989,14 @@ void main() {
             const left = window.screen.availLeft, right = left + window.screen.availWidth - 220;
             const crossing = windowX < left && vx < -250 || windowX > right && vx > 250;
             if (crossing && !characterAway && roomPanel?.isConnected()) {
-              const area = {x:left,y:window.screen.availTop,width:window.screen.availWidth,height:window.screen.availHeight};
-              const payload = window.BmoTransferMath.normalize({x:windowX,y:windowY,vx,vy,area,characterType:roomPanel.characterType});
-              if (roomPanel.sendTransfer(payload)) {characterAway=true;window.bmo.hideCharacter();vx=0;vy=0;}
+              const area2 = { x: left, y: window.screen.availTop, width: window.screen.availWidth, height: window.screen.availHeight };
+              const payload = window.BmoTransferMath.normalize({ x: windowX, y: windowY, vx, vy, area: area2, characterType: roomPanel.characterType });
+              if (roomPanel.sendTransfer(payload)) {
+                characterAway = true;
+                window.bmo.hideCharacter();
+                vx = 0;
+                vy = 0;
+              }
             }
             if (windowX < left) {
               windowX = left;
@@ -44952,11 +45016,11 @@ void main() {
             }
             if (Math.abs(vx) + Math.abs(vy) > 1) window.bmo.move(windowX, windowY);
           }
-          const pose = window.BmoCharacterMotion.pose(t,danceMode,state.playing);
+          const pose = window.BmoCharacterMotion.pose(t, danceMode, state.playing);
           group.rotation.z += (Math.max(-0.2, Math.min(0.2, vx * 25e-5)) + pose.sway - group.rotation.z) * Math.min(1, dt * 7);
           body.position.y = pose.bounce;
-          leftArm.rotation.z = window.BmoCharacterMotion.ease(leftArm.rotation.z,pose.leftArm,dt);
-          rightArm.rotation.z = window.BmoCharacterMotion.ease(rightArm.rotation.z,pose.rightArm,dt);
+          leftArm.rotation.z = window.BmoCharacterMotion.ease(leftArm.rotation.z, pose.leftArm, dt);
+          rightArm.rotation.z = window.BmoCharacterMotion.ease(rightArm.rotation.z, pose.rightArm, dt);
           leftLeg.rotation.x = pose.leftLeg;
           rightLeg.rotation.x = pose.rightLeg;
           for (const entry of clickable) {

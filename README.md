@@ -44,6 +44,6 @@ Dağıtım paketinde `.env`, `BMO Desk.exe` ile aynı klasörde bulunmalıdır. 
 - `connectionPanel.js`: bağlantı arayüzünün durum yönetimi.
 - `multiplayer.js`, `roomPanel.js`, `transferMath.js`: eş bağlantısı, sohbet arayüzü ve ekranlar arası hareket.
 - `vendor/peerjs.min.js`: yerel PeerJS istemcisi (lisansı `vendor/PEERJS-LICENSE.txt`).
-- `renderer.bundle.js`: BMO sahnesi ve karakter etkileşimleri.
+- `src/referenceModel.js` karakter geometrisini, `src/renderer.js` sahneyi ve etkileşimleri tanımlar. Kaynakları değiştirdikten sonra `npm run build:renderer` ile `renderer.bundle.js` dosyasını üretin.
 
 `npm test` yapılandırmayı, oturum geçişini ve oynatma API yanıtlarını sınar.

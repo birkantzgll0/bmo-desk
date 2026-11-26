@@ -75,7 +75,7 @@ app.whenReady().then(() => {
   const store = new TokenStore({userData, appData:app.getPath('appData'), safeStorage});
   api = new SpotifyApi({config, tokenStore:store});
   player = new PlayerService(api);
-  connection = {stage:api.isConnected() ? 'connected' : 'disconnected', message:''};
+  connection = {stage:api.loadError ? 'error' : api.isConnected() ? 'connected' : 'disconnected', message:api.loadError};
   auth = new SpotifyAuth({config, api, shell, onStatus:publishConnection});
 
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'tray.png')));
@@ -100,8 +100,7 @@ app.whenReady().then(() => {
   const usePlayer = async action => {
     try { return await action(); }
     catch (error) {
-      if (error.message === 'SPOTIFY_AUTH_EXPIRED') {
-        api.disconnect();
+      if (error.message === 'SPOTIFY_AUTH_EXPIRED' && !api.isConnected()) {
         publishConnection({stage:'disconnected',message:'Spotify oturumu sona erdi. Yeniden bağlan.'});
       }
       throw error;
